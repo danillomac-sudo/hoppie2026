@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: simbrief-hoppie-dispatcher
+    runtime: node
+    plan: starter
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: SITE_USER
+        value: admin
+      - key: SITE_PASSWORD
+        sync: false
+      - key: DEFAULT_SIMBRIEF_USERID
+        value: 191746
+      - key: DEFAULT_HOPPIE_FROM
+        value: DANOPS
+      - key: HOPPIE_LOGON
+        sync: false
+      - key: HOPPIE_ENDPOINT
+        value: http://www.hoppie.nl/acars/system/connect.html

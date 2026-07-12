@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SimBrief Hoppie Dispatcher</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand-block">
+          <div class="brand-mark">SB</div>
+          <div>
+            <p class="eyebrow">ACARS Dispatch</p>
+            <h1>SimBrief para Hoppie</h1>
+          </div>
+        </div>
+        <div class="header-status">
+          <div class="status-pill" id="serverStatus">Servidor local</div>
+          <div class="status-pill is-live" id="hoppieStatus">Hoppie pronto</div>
+        </div>
+      </header>
+
+      <section class="summary-strip">
+        <div>
+          <span>SimBrief ID</span>
+          <strong id="quickPilot">191746</strong>
+        </div>
+        <div>
+          <span>Dispatcher</span>
+          <strong id="quickDispatcher">DANOPS</strong>
+        </div>
+        <div>
+          <span>Destino</span>
+          <strong id="quickTarget">OFP</strong>
+        </div>
+        <div>
+          <span>Estado</span>
+          <strong id="quickState">Aguardando</strong>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <form class="panel form-grid control-panel" id="dispatchForm">
+          <div class="panel-heading">
+            <div>
+              <p class="panel-kicker">Plano de envio</p>
+              <h2>Despacho Hoppie</h2>
+            </div>
+            <button type="button" class="secondary-button" id="fetchButton">
+              Buscar OFP
+            </button>
+          </div>
+
+          <div class="dispatch-flow full-span">
+            <span>Fluxo</span>
+            <strong id="flowFrom">DANOPS</strong>
+            <b>para</b>
+            <strong id="flowTo">callsign do OFP</strong>
+          </div>
+
+          <label>
+            SimBrief username
+            <input name="username" autocomplete="username" placeholder="seu usuario" />
+          </label>
+
+          <label>
+            Pilot ID
+            <input name="userid" inputmode="numeric" placeholder="ou ID numerico" value="191746" />
+          </label>
+
+          <label>
+            Static ID
+            <input name="staticId" placeholder="opcional" />
+          </label>
+
+          <label>
+            Tipo
+            <select name="type">
+              <option value="telex">Telex</option>
+              <option value="progress">Progress</option>
+              <option value="cpdlc">CPDLC</option>
+              <option value="ping">Ping</option>
+            </select>
+          </label>
+
+          <label>
+            Delay
+            <span class="input-with-unit">
+              <input name="delayMinutes" type="number" min="0" max="180" value="5" />
+              <span>min</span>
+            </span>
+          </label>
+
+          <label class="full-span">
+            Mensagem
+            <textarea name="template" rows="6" spellcheck="false">DISPATCH {callsign}
+FLT {flightNumber} {origin}-{destination} SID {sid} ALT {cruiseAltitude} ETE {ete}
+ACFT {aircraft} REG {registration} ALTN {alternate}
+BLOCK FUEL {blockFuel} CI {costIndex}</textarea>
+          </label>
+
+          <div class="form-actions full-span">
+            <p id="charCount">0 caracteres</p>
+            <button type="submit" class="primary-button">Agendar envio</button>
+          </div>
+        </form>
+
+        <section class="panel flight-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="panel-kicker">Plano operacional</p>
+              <h2>OFP carregado</h2>
+            </div>
+            <span id="generatedAt">Aguardando SimBrief</span>
+          </div>
+
+          <div class="route-frame">
+            <canvas id="routeCanvas" width="900" height="360" aria-label="Mapa da rota"></canvas>
+          </div>
+
+          <dl class="flight-facts">
+            <div>
+              <dt>Voo</dt>
+              <dd id="factFlight">-</dd>
+            </div>
+            <div>
+              <dt>Rota</dt>
+              <dd id="factRoute">-</dd>
+            </div>
+            <div>
+              <dt>Aeronave</dt>
+              <dd id="factAircraft">-</dd>
+            </div>
+            <div>
+              <dt>Combustivel</dt>
+              <dd id="factFuel">-</dd>
+            </div>
+            <div class="wide-fact">
+              <dt>Hoppie</dt>
+              <dd id="factHoppie">-</dd>
+            </div>
+          </dl>
+        </section>
+      </section>
+
+      <section class="panel jobs-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="panel-kicker">Fila</p>
+            <h2>Agendamentos</h2>
+          </div>
+          <button type="button" class="secondary-button" id="refreshJobs">Atualizar</button>
+        </div>
+        <div class="jobs-list" id="jobsList"></div>
+      </section>
+
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

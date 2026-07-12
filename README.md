@@ -1,0 +1,88 @@
+# SimBrief Hoppie Dispatcher
+
+Site para buscar o OFP mais recente do SimBrief e agendar uma mensagem via Hoppie ACARS alguns minutos depois.
+
+## Rodar localmente
+
+```powershell
+node server.js
+```
+
+Depois abra:
+
+```text
+http://localhost:3000
+```
+
+Se quiser outra porta:
+
+```powershell
+$env:PORT=4000
+node server.js
+```
+
+## Hospedar no Render
+
+Recomendado para este projeto. O envio com delay precisa de um processo Node que continue vivo depois que voce fecha o navegador.
+
+1. Suba esta pasta para um repositorio no GitHub.
+2. No Render, crie um novo Web Service usando esse repositorio.
+3. Use:
+   - Build command: `npm install --omit=dev`
+   - Start command: `npm start`
+4. Configure variaveis de ambiente:
+   - `SITE_USER`: usuario da tela, por exemplo `admin`
+   - `SITE_PASSWORD`: senha forte para proteger o site
+   - `HOPPIE_ENDPOINT`: `http://www.hoppie.nl/acars/system/connect.html`
+
+O arquivo `render.yaml` tambem permite criar o servico como Blueprint.
+
+## Sobre Vercel
+
+Vercel usa funcoes serverless em `/var/task`, que nao e um sistema de arquivos persistente. O app agora usa um diretorio temporario quando detecta Vercel, evitando erro como `ENOENT: no such file or directory, mkdir '/var/task/.data'`.
+
+Mesmo assim, Vercel nao e recomendado para o envio atrasado via `setTimeout`, porque a funcao pode encerrar antes do horario de envio. Para mandar mensagem via Hoppie alguns minutos depois com confiabilidade, use Render, Railway ou Fly.io como servico Node sempre ligado.
+
+## Dados necessarios na tela
+
+- SimBrief username ou Pilot ID. O Pilot ID padrao ja esta configurado como `191746`.
+- Hoppie logon code do dispatcher. Ele fica configurado no servidor via `HOPPIE_LOGON`, sem aparecer na tela.
+- Callsign de origem do dispatcher via `DEFAULT_HOPPIE_FROM`, por exemplo `DANOPS`.
+- Callsign de destino e puxado automaticamente do SimBrief, usando o callsign do OFP.
+
+## Observacoes importantes
+
+Os agendamentos ficam em memoria e tambem sao gravados em `.data/jobs.json`, mas o logon do Hoppie nao e salvo no arquivo. Se o servidor reiniciar antes do envio, o job antigo aparece como erro porque nao e seguro gravar esse logon em disco.
+
+Para uso mais serio, o proximo passo e trocar esse armazenamento por Postgres/Redis e um worker que verifica a fila a cada minuto.
+
+## Placeholders do template
+
+```text
+{callsign}
+{flightNumber}
+{origin}
+{destination}
+{alternate}
+{aircraft}
+{registration}
+{cruiseAltitude}
+{sid}
+{sidIdent}
+{sidTrans}
+{sid_ident}
+{sid_trans}
+{ete}
+{route}
+{routeShort}
+{distance}
+{blockFuel}
+{costIndex}
+{zfw}
+{payload}
+{release}
+{generatedAt}
+{schedOut}
+```
+
+Mantenha a mensagem curta. ACARS/Hoppie nao e feito para trafego grande.

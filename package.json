@@ -1,0 +1,14 @@
+{
+  "name": "simbrief-hoppie-dispatcher",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Site para buscar OFP do SimBrief e agendar mensagem via Hoppie ACARS.",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js"
+  },
+  "engines": {
+    "node": ">=20 <25"
+  }
+}
