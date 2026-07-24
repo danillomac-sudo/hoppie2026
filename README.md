@@ -7,6 +7,7 @@ Agora o projeto tambem inclui uma primeira versao do modulo de aprovacao IFR:
 - criacao manual de plano de voo
 - importacao a partir do SimBrief
 - validacao por etapas: callsign, aeronave, equipamentos, aeroportos, alternado, rota, flight level e ETD
+- base local com milhares de aeroportos ICAO gerada a partir do OurAirports
 - rejeicao com motivo especifico quando uma etapa falha
 - reserva automatica de squawk, ignorando codigos proibidos como 7500, 7600 e 7700
 - geracao de Flight Clearance IFR
@@ -65,6 +66,17 @@ Mesmo assim, Vercel nao e recomendado para o envio atrasado via `setTimeout`, po
 Os agendamentos ficam em memoria e tambem sao gravados em `.data/jobs.json`, mas o logon do Hoppie nao e salvo no arquivo. Se o servidor reiniciar antes do envio, o job antigo aparece como erro porque nao e seguro gravar esse logon em disco.
 
 Os planos IFR ficam em `.data/flight-plans.json` quando o servidor permite escrita em disco. Em Vercel, esse arquivo fica no diretorio temporario da funcao e pode ser perdido quando a instancia troca. Para uso serio, o proximo passo e trocar esse armazenamento por Postgres/Redis e um worker que verifica a fila a cada minuto.
+
+A base local de aeroportos fica em `lib/ifp/airport-database.js` e foi gerada com dados publicos do OurAirports. Para atualizar:
+
+```powershell
+mkdir .tmp-airports
+curl.exe -L https://davidmegginson.github.io/ourairports-data/airports.csv -o .tmp-airports/airports.csv
+curl.exe -L https://davidmegginson.github.io/ourairports-data/runways.csv -o .tmp-airports/runways.csv
+npm run build:airports -- .tmp-airports lib/ifp/airport-database.js
+```
+
+Quando um ICAO valido ainda nao existir na base local, o plano passa com aviso de revisao manual em vez de ser rejeitado automaticamente.
 
 ## API IFR
 

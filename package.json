@@ -6,7 +6,8 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js"
+    "check": "node --check server.js",
+    "build:airports": "node scripts/build-airport-database.js"
   },
   "engines": {
     "node": ">=20 <25"
