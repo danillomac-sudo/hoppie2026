@@ -78,6 +78,8 @@ function syncIfrFromSummary(summary) {
   setIfEmpty(ifrForm.alternate, summary.alternate);
   setIfEmpty(ifrForm.flightLevel, summary.cruiseAltitude);
   setIfEmpty(ifrForm.etdUtc, summary.schedOut);
+  setIfEmpty(ifrForm.sid, summary.sidIdent || summary.sid);
+  setIfEmpty(ifrForm.sidTransition, summary.sidTrans || summary.sidTransition);
   setIfEmpty(ifrForm.route, summary.route);
   setIfEmpty(ifrForm.equipment, "SDE2E3FGHIRWXY/LB1");
   setIfEmpty(ifrForm.remarks, "PBN/A1B1C1D1 OPR/VIRTUAL");
@@ -88,6 +90,9 @@ function applyTemplate(template, summary) {
   return String(template || "")
     .replace(/\{([a-zA-Z0-9_]+)\}/g, (_, key) => summary?.[key] ?? "")
     .replace(/[ \t]+$/gm, "")
+    .split(/\r?\n/)
+    .filter((line) => line.trim())
+    .join("\n")
     .trim();
 }
 
@@ -517,6 +522,12 @@ function renderFlightPlans(plans) {
     card.className = "plan-card";
     const title = `${fmt(plan.callsign)} ${fmt(plan.origin)}-${fmt(plan.destination)}`;
     const clearance = plan.clearance || firstValidationFailure(plan) || "Sem clearance.";
+    const departureInfo = [
+      plan.sid ? `SID ${plan.sid}` : "",
+      plan.sidTransition ? `TRANS ${plan.sidTransition}` : "",
+    ]
+      .filter(Boolean)
+      .join(" / ");
     const actions = nextPlanActions(plan)
       .map(
         (action) =>
@@ -532,6 +543,7 @@ function renderFlightPlans(plans) {
         <p>${escapeHtml(fmt(plan.aircraftType))} / ${escapeHtml(
           fmt(plan.flightLevel)
         )} / ${escapeHtml(fmt(plan.etdUtc).replace("T", " ").slice(0, 16))}Z</p>
+        ${departureInfo ? `<p>${escapeHtml(departureInfo)}</p>` : ""}
         <p>${escapeHtml(clearance)}</p>
       </div>
       <div class="plan-side">

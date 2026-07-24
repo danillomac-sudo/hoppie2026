@@ -327,9 +327,15 @@ function buildFlightSummary(ofp) {
     String(valueAt(ofp, ["atc.callsign", "general.callsign"], "")).toUpperCase() ||
     flightNumber;
   const route = String(valueAt(ofp, ["general.route", "route"], ""));
-  const sidIdent = String(valueAt(ofp, ["general.sid_ident"], "")).toUpperCase();
-  const sidTrans = String(valueAt(ofp, ["general.sid_trans"], "")).toUpperCase();
+  const sidIdent = String(
+    valueAt(ofp, ["sid_ident", "general.sid_ident", "atc.sid_ident"], "")
+  ).toUpperCase();
+  const sidTrans = String(
+    valueAt(ofp, ["sid_trans", "general.sid_trans", "atc.sid_trans"], "")
+  ).toUpperCase();
   const sid = [sidIdent, sidTrans].filter(Boolean).join(" ");
+  const sidLine = sidIdent ? `SID ${sidIdent}` : "";
+  const sidTransLine = sidTrans ? `TRANS ${sidTrans}` : "";
   const cruiseAltitude = String(
     valueAt(ofp, [
       "general.initial_altitude",
@@ -361,6 +367,10 @@ function buildFlightSummary(ofp) {
     sidTrans,
     sid_ident: sidIdent,
     sid_trans: sidTrans,
+    sidLine,
+    sidTransLine,
+    sidTransition: sidTrans,
+    transition: sidTrans,
     route,
     routeShort: simplifyRoute(route),
     distance: formatNumber(
@@ -388,6 +398,9 @@ function fillTemplate(template, summary) {
   return String(template || "")
     .replace(/\{([a-zA-Z0-9_]+)\}/g, (_, key) => summary[key] ?? "")
     .replace(/[ \t]+$/gm, "")
+    .split(/\r?\n/)
+    .filter((line) => line.trim())
+    .join("\n")
     .trim();
 }
 
@@ -395,7 +408,8 @@ function defaultPacket(summary) {
   return fillTemplate(
     [
       "DISPATCH {callsign}",
-      "FLT {flightNumber} {origin}-{destination} SID {sid} ALT {cruiseAltitude} ETE {ete}",
+      "FLT {flightNumber} {origin}-{destination} ALT {cruiseAltitude} ETE {ete}",
+      "{sidLine} {sidTransLine}",
       "ACFT {aircraft} REG {registration} ALTN {alternate}",
       "BLOCK FUEL {blockFuel} CI {costIndex}",
     ].join("\n"),

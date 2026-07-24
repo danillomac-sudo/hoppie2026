@@ -96,7 +96,8 @@
           <label class="full-span">
             Mensagem
             <textarea name="template" rows="6" spellcheck="false">DISPATCH {callsign}
-FLT {flightNumber} {origin}-{destination} SID {sid} ALT {cruiseAltitude} ETE {ete}
+FLT {flightNumber} {origin}-{destination} ALT {cruiseAltitude} ETE {ete}
+{sidLine} {sidTransLine}
 ACFT {aircraft} REG {registration} ALTN {alternate}
 BLOCK FUEL {blockFuel} CI {costIndex}</textarea>
           </label>
@@ -196,6 +197,16 @@ BLOCK FUEL {blockFuel} CI {costIndex}</textarea>
             <label>
               Equipamentos ICAO
               <input name="equipment" placeholder="SDE2E3FGHIRWXY/LB1" />
+            </label>
+
+            <label>
+              SID
+              <input name="sid" placeholder="KUKE1L" />
+            </label>
+
+            <label>
+              Transition
+              <input name="sidTransition" placeholder="PULPO" />
             </label>
 
             <label class="full-span">

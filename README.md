@@ -103,7 +103,8 @@ Campos aceitos no `POST /api/flight-plans`:
   "etdUtc": "2026-07-24 13:15",
   "equipment": "SDE2E3FGHIRWXY/LB1",
   "remarks": "PBN/A1B1C1D1",
-  "sid": "KUKE1L"
+  "sid": "KUKE1L",
+  "sidTransition": "PULPO"
 }
 ```
 
@@ -129,6 +130,10 @@ Draft, Pending Validation, Approved, Active, Completed, Archived, Rejected
 {sidTrans}
 {sid_ident}
 {sid_trans}
+{sidLine}
+{sidTransLine}
+{sidTransition}
+{transition}
 {ete}
 {route}
 {routeShort}
