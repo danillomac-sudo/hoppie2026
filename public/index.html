@@ -145,6 +145,107 @@ BLOCK FUEL {blockFuel} CI {costIndex}</textarea>
         </section>
       </section>
 
+      <section class="panel ifr-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="panel-kicker">IFR validation</p>
+            <h2>Aprovacao de plano de voo</h2>
+          </div>
+          <button type="button" class="secondary-button" id="importIfrButton">
+            Importar SimBrief
+          </button>
+        </div>
+
+        <div class="ifr-layout">
+          <form class="ifr-form" id="ifrForm">
+            <label>
+              Callsign
+              <input name="callsign" placeholder="GLO7215" />
+            </label>
+
+            <label>
+              Aeronave ICAO
+              <input name="aircraftType" placeholder="A320" />
+            </label>
+
+            <label>
+              Origem
+              <input name="origin" placeholder="SBGR" maxlength="4" />
+            </label>
+
+            <label>
+              Destino
+              <input name="destination" placeholder="SBCF" maxlength="4" />
+            </label>
+
+            <label>
+              Alternado
+              <input name="alternate" placeholder="SBGL" maxlength="4" />
+            </label>
+
+            <label>
+              Flight Level
+              <input name="flightLevel" placeholder="FL350" />
+            </label>
+
+            <label>
+              ETD UTC
+              <input name="etdUtc" placeholder="2026-07-24 13:15" />
+            </label>
+
+            <label>
+              Equipamentos ICAO
+              <input name="equipment" placeholder="SDE2E3FGHIRWXY/LB1" />
+            </label>
+
+            <label class="full-span">
+              Rota completa
+              <textarea name="route" rows="4" spellcheck="false" placeholder="DCT WAYPT UZ45 FIX DCT"></textarea>
+            </label>
+
+            <label class="full-span">
+              Remarks
+              <textarea name="remarks" rows="3" spellcheck="false" placeholder="PBN/A1B1C1D1 OPR/VIRTUAL"></textarea>
+            </label>
+
+            <div class="form-actions full-span">
+              <p id="ifrSourceHint">Manual ou SimBrief</p>
+              <button type="submit" class="primary-button">Validar IFR</button>
+            </div>
+          </form>
+
+          <aside class="ifr-result">
+            <div class="clearance-card">
+              <span>Status</span>
+              <strong id="ifrStatus">Draft</strong>
+            </div>
+            <div class="clearance-card">
+              <span>Squawk</span>
+              <strong id="ifrSquawk">----</strong>
+            </div>
+            <div class="clearance-card clearance-text-card">
+              <span>Flight Clearance</span>
+              <pre id="ifrClearance">Aguardando aprovacao IFR.</pre>
+            </div>
+          </aside>
+        </div>
+
+        <div class="validation-track" id="validationSteps"></div>
+
+        <div class="flight-plan-history">
+          <div class="panel-heading compact-heading">
+            <div>
+              <p class="panel-kicker">Arquivo operacional</p>
+              <h2>Planos recentes</h2>
+            </div>
+            <button type="button" class="secondary-button" id="refreshPlans">
+              Atualizar
+            </button>
+          </div>
+          <div class="plan-list" id="flightPlanList"></div>
+        </div>
+      </section>
+
       <section class="panel jobs-panel">
         <div class="panel-heading">
           <div>

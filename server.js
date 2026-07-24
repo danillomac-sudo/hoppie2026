@@ -5,6 +5,14 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const crypto = require("node:crypto");
+const { createFlightPlanStore } = require("./lib/ifp/store");
+const {
+  PLAN_STATUSES,
+  approveFlightPlan,
+  applyStatusTransition,
+  buildInputFromSimbrief,
+  publicFlightPlan,
+} = require("./lib/ifp/validator");
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -15,6 +23,7 @@ const DATA_DIR =
     ? path.join(os.tmpdir(), "simbrief-hoppie-dispatcher")
     : path.join(__dirname, ".data"));
 const JOBS_FILE = path.join(DATA_DIR, "jobs.json");
+const FLIGHT_PLANS_FILE = path.join(DATA_DIR, "flight-plans.json");
 const ENV_FILE = path.join(__dirname, ".env");
 
 loadEnvFile(ENV_FILE);
@@ -32,6 +41,7 @@ const DEFAULT_HOPPIE_FROM = process.env.DEFAULT_HOPPIE_FROM || "DANOPS";
 const HOPPIE_TYPES = new Set(["telex", "progress", "cpdlc", "ping"]);
 const jobs = new Map();
 const timers = new Map();
+const flightPlanStore = createFlightPlanStore(FLIGHT_PLANS_FILE);
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -466,6 +476,13 @@ function publicJob(job) {
   return safeJob;
 }
 
+function listPublicFlightPlans() {
+  return flightPlanStore
+    .list()
+    .map(publicFlightPlan)
+    .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+}
+
 function persistJob(job) {
   jobs.set(job.id, job);
   saveJobs();
@@ -555,6 +572,100 @@ async function handleApi(req, res, url) {
 
       const result = await fetchSimbrief({ username, userid, staticId });
       sendJson(res, 200, result);
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/flight-plans") {
+      sendJson(res, 200, {
+        statuses: PLAN_STATUSES,
+        plans: listPublicFlightPlans(),
+      });
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/flight-plans") {
+      const body = await readBody(req);
+      const plan = approveFlightPlan(body, flightPlanStore.list());
+      flightPlanStore.upsert(plan);
+      sendJson(res, 201, { plan: publicFlightPlan(plan) });
+      return;
+    }
+
+    if (
+      req.method === "POST" &&
+      url.pathname === "/api/flight-plans/import-simbrief"
+    ) {
+      const body = await readBody(req);
+      const username = String(body.username || "").trim();
+      const userid = String(body.userid || DEFAULT_SIMBRIEF_USERID).trim();
+      const staticId = String(body.staticId || "").trim();
+
+      if (!username && !userid) {
+        throw new Error("Informe username ou Pilot ID do SimBrief.");
+      }
+
+      const result = await fetchSimbrief({ username, userid, staticId });
+      const input = buildInputFromSimbrief(result.summary, result.raw, {
+        username,
+        userid,
+        staticId,
+      });
+      const plan = approveFlightPlan(input, flightPlanStore.list());
+      flightPlanStore.upsert(plan);
+      sendJson(res, 201, {
+        plan: publicFlightPlan(plan),
+        summary: result.summary,
+      });
+      return;
+    }
+
+    const flightPlanMatch = url.pathname.match(/^\/api\/flight-plans\/([^/]+)$/);
+    if (req.method === "GET" && flightPlanMatch) {
+      const plan = flightPlanStore.get(decodeURIComponent(flightPlanMatch[1]));
+      if (!plan) {
+        sendJson(res, 404, { error: "Plano de voo nao encontrado." });
+        return;
+      }
+      sendJson(res, 200, { plan: publicFlightPlan(plan) });
+      return;
+    }
+
+    const clearanceMatch = url.pathname.match(
+      /^\/api\/flight-plans\/([^/]+)\/clearance$/
+    );
+    if (req.method === "GET" && clearanceMatch) {
+      const plan = flightPlanStore.get(decodeURIComponent(clearanceMatch[1]));
+      if (!plan) {
+        sendJson(res, 404, { error: "Plano de voo nao encontrado." });
+        return;
+      }
+      if (!plan.clearance) {
+        sendJson(res, 409, { error: "Plano ainda nao possui clearance IFR." });
+        return;
+      }
+      sendJson(res, 200, {
+        id: plan.id,
+        callsign: plan.callsign,
+        status: plan.status,
+        squawk: plan.squawk,
+        clearance: plan.clearance,
+      });
+      return;
+    }
+
+    const statusMatch = url.pathname.match(
+      /^\/api\/flight-plans\/([^/]+)\/status$/
+    );
+    if (req.method === "POST" && statusMatch) {
+      const body = await readBody(req);
+      const plan = flightPlanStore.get(decodeURIComponent(statusMatch[1]));
+      if (!plan) {
+        sendJson(res, 404, { error: "Plano de voo nao encontrado." });
+        return;
+      }
+      const updated = applyStatusTransition(plan, String(body.status || ""));
+      flightPlanStore.upsert(updated);
+      sendJson(res, 200, { plan: publicFlightPlan(updated) });
       return;
     }
 

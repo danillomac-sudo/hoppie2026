@@ -1,14 +1,20 @@
 "use strict";
 
 const form = document.querySelector("#dispatchForm");
+const ifrForm = document.querySelector("#ifrForm");
 const fetchButton = document.querySelector("#fetchButton");
+const importIfrButton = document.querySelector("#importIfrButton");
 const refreshJobsButton = document.querySelector("#refreshJobs");
+const refreshPlansButton = document.querySelector("#refreshPlans");
 const jobsList = document.querySelector("#jobsList");
+const flightPlanList = document.querySelector("#flightPlanList");
+const validationSteps = document.querySelector("#validationSteps");
 const toast = document.querySelector("#toast");
 const charCount = document.querySelector("#charCount");
 const routeCanvas = document.querySelector("#routeCanvas");
 
 let currentSummary = null;
+let currentIfrPlan = null;
 let toastTimer = null;
 
 const fields = {
@@ -25,6 +31,10 @@ const fields = {
   flowFrom: document.querySelector("#flowFrom"),
   flowTo: document.querySelector("#flowTo"),
   hoppieStatus: document.querySelector("#hoppieStatus"),
+  ifrStatus: document.querySelector("#ifrStatus"),
+  ifrSquawk: document.querySelector("#ifrSquawk"),
+  ifrClearance: document.querySelector("#ifrClearance"),
+  ifrSourceHint: document.querySelector("#ifrSourceHint"),
 };
 
 let appConfig = {
@@ -43,6 +53,35 @@ function getFormData() {
   const data = Object.fromEntries(new FormData(form).entries());
   data.delayMinutes = Number(data.delayMinutes || 0);
   return data;
+}
+
+function getIfrFormData() {
+  return Object.fromEntries(new FormData(ifrForm).entries());
+}
+
+function setIfEmpty(element, value) {
+  if (!element || String(element.value || "").trim()) {
+    return;
+  }
+  element.value = value || "";
+}
+
+function syncIfrFromSummary(summary) {
+  if (!summary) {
+    return;
+  }
+
+  setIfEmpty(ifrForm.callsign, summary.callsign || summary.flightNumber);
+  setIfEmpty(ifrForm.aircraftType, summary.aircraft);
+  setIfEmpty(ifrForm.origin, summary.origin);
+  setIfEmpty(ifrForm.destination, summary.destination);
+  setIfEmpty(ifrForm.alternate, summary.alternate);
+  setIfEmpty(ifrForm.flightLevel, summary.cruiseAltitude);
+  setIfEmpty(ifrForm.etdUtc, summary.schedOut);
+  setIfEmpty(ifrForm.route, summary.route);
+  setIfEmpty(ifrForm.equipment, "SDE2E3FGHIRWXY/LB1");
+  setIfEmpty(ifrForm.remarks, "PBN/A1B1C1D1 OPR/VIRTUAL");
+  fields.ifrSourceHint.textContent = `Preenchido com ${fmt(summary.callsign)} do SimBrief`;
 }
 
 function applyTemplate(template, summary) {
@@ -95,6 +134,9 @@ function setFlightSummary(summary) {
   fields.hoppieStatus.textContent = appConfig.hoppieLogonConfigured
     ? "Hoppie pronto"
     : "Hoppie pendente";
+  if (summary) {
+    syncIfrFromSummary(summary);
+  }
   drawRoute(summary);
   updateCharCount();
 }
@@ -278,6 +320,94 @@ async function scheduleSend(event) {
   }
 }
 
+async function validateIfrPlan(event) {
+  event.preventDefault();
+  const submitButton = ifrForm.querySelector("button[type='submit']");
+  submitButton.disabled = true;
+
+  try {
+    const result = await requestJson("/api/flight-plans", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(getIfrFormData()),
+    });
+    renderIfrPlan(result.plan);
+    showToast(
+      result.plan.status === "Approved"
+        ? `Plano aprovado. Squawk ${result.plan.squawk}.`
+        : "Plano rejeitado. Veja as etapas de validacao."
+    );
+    await loadFlightPlans();
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    submitButton.disabled = false;
+  }
+}
+
+async function importIfrFromSimbrief() {
+  const data = getFormData();
+  if (!data.username && !data.userid) {
+    showToast("Informe o username ou Pilot ID do SimBrief.");
+    return;
+  }
+
+  importIfrButton.disabled = true;
+  importIfrButton.textContent = "Importando...";
+
+  try {
+    const result = await requestJson("/api/flight-plans/import-simbrief", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: data.username,
+        userid: data.userid,
+        staticId: data.staticId,
+      }),
+    });
+    setFlightSummary(result.summary);
+    renderIfrPlan(result.plan);
+    showToast(
+      result.plan.status === "Approved"
+        ? `SimBrief aprovado. Squawk ${result.plan.squawk}.`
+        : "SimBrief importado, mas o plano foi rejeitado."
+    );
+    await loadFlightPlans();
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    importIfrButton.disabled = false;
+    importIfrButton.textContent = "Importar SimBrief";
+  }
+}
+
+async function loadFlightPlans() {
+  try {
+    const { plans } = await requestJson("/api/flight-plans");
+    renderFlightPlans(plans);
+    if (!currentIfrPlan && plans.length) {
+      renderIfrPlan(plans[0]);
+    }
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function updateFlightPlanStatus(id, status) {
+  try {
+    const result = await requestJson(`/api/flight-plans/${id}/status`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    renderIfrPlan(result.plan);
+    showToast(`Plano atualizado para ${status}.`);
+    await loadFlightPlans();
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
 async function cancelJob(id) {
   try {
     await requestJson(`/api/jobs/${id}/cancel`, { method: "POST" });
@@ -314,6 +444,132 @@ async function loadConfig() {
     fields.quickPilot.textContent = form.userid.value || "-";
     setFlightSummary(currentSummary);
   }
+}
+
+function statusSlug(value) {
+  return String(value || "draft").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+
+function renderIfrPlan(plan) {
+  currentIfrPlan = plan || null;
+
+  if (!plan) {
+    fields.ifrStatus.textContent = "Draft";
+    fields.ifrSquawk.textContent = "----";
+    fields.ifrClearance.textContent = "Aguardando aprovacao IFR.";
+    renderValidationSteps([]);
+    return;
+  }
+
+  fields.ifrStatus.textContent = plan.status || "Draft";
+  fields.ifrSquawk.textContent = plan.squawk || "----";
+  fields.ifrClearance.textContent =
+    plan.clearance ||
+    firstValidationFailure(plan) ||
+    "Plano ainda nao possui clearance IFR.";
+
+  const resultCards = document.querySelectorAll(".clearance-card");
+  for (const card of resultCards) {
+    card.dataset.status = statusSlug(plan.status);
+  }
+
+  fields.ifrSourceHint.textContent = `${fmt(plan.callsign)} ${fmt(plan.origin)}-${fmt(
+    plan.destination
+  )}`;
+  renderValidationSteps(plan.validation?.steps || []);
+}
+
+function firstValidationFailure(plan) {
+  const failed = plan.validation?.steps?.find((step) => step.status === "failed");
+  return failed ? failed.message : "";
+}
+
+function renderValidationSteps(steps) {
+  if (!steps.length) {
+    validationSteps.innerHTML =
+      '<p class="empty-state">Nenhuma validacao executada ainda.</p>';
+    return;
+  }
+
+  validationSteps.innerHTML = steps
+    .map(
+      (step) => `
+        <article class="validation-step ${escapeHtml(step.status)}">
+          <span>${escapeHtml(step.status)}</span>
+          <strong>${escapeHtml(step.label)}</strong>
+          <p>${escapeHtml(step.message)}</p>
+        </article>
+      `
+    )
+    .join("");
+}
+
+function renderFlightPlans(plans) {
+  if (!plans.length) {
+    flightPlanList.innerHTML =
+      '<p class="empty-state">Nenhum plano IFR criado ainda.</p>';
+    return;
+  }
+
+  flightPlanList.innerHTML = "";
+  for (const plan of plans) {
+    const card = document.createElement("article");
+    card.className = "plan-card";
+    const title = `${fmt(plan.callsign)} ${fmt(plan.origin)}-${fmt(plan.destination)}`;
+    const clearance = plan.clearance || firstValidationFailure(plan) || "Sem clearance.";
+    const actions = nextPlanActions(plan)
+      .map(
+        (action) =>
+          `<button type="button" class="secondary-button" data-plan-action="${escapeHtml(
+            action.status
+          )}" data-plan-id="${escapeHtml(plan.id)}">${escapeHtml(action.label)}</button>`
+      )
+      .join("");
+
+    card.innerHTML = `
+      <div>
+        <h3>${escapeHtml(title)}</h3>
+        <p>${escapeHtml(fmt(plan.aircraftType))} / ${escapeHtml(
+          fmt(plan.flightLevel)
+        )} / ${escapeHtml(fmt(plan.etdUtc).replace("T", " ").slice(0, 16))}Z</p>
+        <p>${escapeHtml(clearance)}</p>
+      </div>
+      <div class="plan-side">
+        <span class="badge ${escapeHtml(statusSlug(plan.status))}">${escapeHtml(
+          plan.status
+        )}</span>
+        <strong>${escapeHtml(plan.squawk || "----")}</strong>
+      </div>
+      ${actions ? `<div class="plan-actions">${actions}</div>` : ""}
+    `;
+
+    card.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-plan-action]");
+      if (button) {
+        updateFlightPlanStatus(button.dataset.planId, button.dataset.planAction);
+        return;
+      }
+      renderIfrPlan(plan);
+    });
+
+    flightPlanList.appendChild(card);
+  }
+}
+
+function nextPlanActions(plan) {
+  if (plan.status === "Approved") {
+    return [
+      { label: "Ativar", status: "Active" },
+      { label: "Arquivar", status: "Archived" },
+    ];
+  }
+  if (plan.status === "Active") {
+    return [{ label: "Completar", status: "Completed" }];
+  }
+  if (["Completed", "Rejected"].includes(plan.status)) {
+    return [{ label: "Arquivar", status: "Archived" }];
+  }
+  return [];
 }
 
 function renderJobs(jobs) {
@@ -369,14 +625,20 @@ function escapeHtml(value) {
 }
 
 fetchButton.addEventListener("click", fetchOfp);
+importIfrButton.addEventListener("click", importIfrFromSimbrief);
 refreshJobsButton.addEventListener("click", loadJobs);
+refreshPlansButton.addEventListener("click", loadFlightPlans);
 form.addEventListener("submit", scheduleSend);
+ifrForm.addEventListener("submit", validateIfrPlan);
 form.template.addEventListener("input", updateCharCount);
 form.userid.addEventListener("input", () => {
   fields.quickPilot.textContent = form.userid.value || "-";
 });
 
 setFlightSummary(null);
+renderIfrPlan(null);
 loadConfig();
 loadJobs();
+loadFlightPlans();
 setInterval(loadJobs, 10_000);
+setInterval(loadFlightPlans, 30_000);
