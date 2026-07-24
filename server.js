@@ -304,7 +304,17 @@ function buildFlightSummary(ofp) {
     ])
   ).toUpperCase();
   const alternate = String(
-    valueAt(ofp, ["alternate.icao_code", "alternate.icao", "alternate.iata_code"])
+    valueAt(ofp, [
+      "alternate.icao_code",
+      "alternate.icao",
+      "alternate.iata_code",
+      "alternate.0.icao_code",
+      "alternate.0.icao",
+      "alternate.0.iata_code",
+      "alternate.1.icao_code",
+      "alternate.1.icao",
+      "alternate.1.iata_code",
+    ])
   ).toUpperCase();
   const flightNumber = String(
     valueAt(ofp, [
